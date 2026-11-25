@@ -29,10 +29,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Any, Awaitable, Callable
 
-from jsonschema import Draft202012Validator
-
 from ..identity import KeyPair, check_proof, generate_key, make_pass, peek_pass, read_pass
-from ..protocol import CAPABILITY_PARTS, MESSAGE_CAPABILITY, PARTICIPANT_MESSAGES, validate
+from ..protocol import CAPABILITY_PARTS, MESSAGE_CAPABILITY, PARTICIPANT_MESSAGES, schema_validator, validate
 from ..transport import Connection, Listener, listen
 from ..util import canonical_json, content_hash, iso_after, now, random_token, strip_none
 from .errors import Failed, Refused, Stopped, Uncertain
@@ -272,7 +270,7 @@ class Space:
         self._counter = 0
         self._listeners: list[Listener] = []
         self._blobs: dict[str, tuple[str, bytes]] = {self.vocabulary_hash: ("application/json", canonical_json(vocabulary).encode())}
-        self._param_validators: dict[str, Draft202012Validator] = {}
+        self._param_validators: dict[str, Any] = {}
         self._closing = False
         self._closed: asyncio.Future[None] | None = None
         self._pruned_before = self.store.get_meta("pruned_before")
@@ -794,7 +792,7 @@ class Space:
         if decl.get("params"):
             v = self._param_validators.get(msg["verb"])
             if v is None:
-                v = self._param_validators[msg["verb"]] = Draft202012Validator(decl["params"])
+                v = self._param_validators[msg["verb"]] = schema_validator(decl["params"])
             err = next(iter(v.iter_errors(msg.get("args") or {})), None)
             if err:
                 path = "/" + "/".join(str(p) for p in err.absolute_path) if err.absolute_path else ""

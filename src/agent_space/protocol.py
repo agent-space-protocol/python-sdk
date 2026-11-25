@@ -9,8 +9,7 @@ from functools import lru_cache
 from importlib import resources
 from typing import Any
 
-from jsonschema import Draft202012Validator
-from referencing import Registry, Resource
+from . import schemalite
 
 
 class End(StrEnum):
@@ -175,12 +174,37 @@ def schema() -> dict[str, Any]:
     return json.loads(resources.files("agent_space").joinpath("schema/schema.json").read_text(encoding="utf-8"))
 
 
+def validator_class() -> str:
+    """Which validator checks messages: "jsonschema" (the `validate` extra) or "python"."""
+    try:
+        import jsonschema  # noqa: F401
+        import referencing  # noqa: F401
+    except ImportError:
+        return "python"
+    return "jsonschema"
+
+
 @lru_cache(maxsize=None)
-def _validator(definition: str) -> Draft202012Validator:
+def _validator(definition: str) -> Any:
     s = schema()
     uri = s["$id"]
-    registry = Registry().with_resource(uri, Resource.from_contents(s))
-    return Draft202012Validator({"$ref": f"{uri}#/$defs/{definition}"}, registry=registry, format_checker=Draft202012Validator.FORMAT_CHECKER)
+    if validator_class() == "jsonschema":
+        from jsonschema import Draft202012Validator
+        from referencing import Registry, Resource
+
+        registry = Registry().with_resource(uri, Resource.from_contents(s))
+        return Draft202012Validator({"$ref": f"{uri}#/$defs/{definition}"}, registry=registry, format_checker=Draft202012Validator.FORMAT_CHECKER)
+    return schemalite.Validator({"$ref": f"#/$defs/{definition}"}, s)
+
+
+def schema_validator(params: dict[str, Any]) -> Any:
+    """A validator of one standalone schema, such as a verb's parameters: `iter_errors(value)`
+    yields errors with `absolute_path` and `message`."""
+    if validator_class() == "jsonschema":
+        from jsonschema import Draft202012Validator
+
+        return Draft202012Validator(params)
+    return schemalite.Validator(params)
 
 
 def validate(definition: str, value: Any) -> str | None:
