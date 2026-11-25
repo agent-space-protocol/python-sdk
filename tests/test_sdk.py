@@ -231,3 +231,31 @@ def test_sync_participant():
         asyncio.run_coroutine_threadsafe(space.close(), loop).result(10)
         loop.call_soon_threadsafe(loop.stop)
         thread.join(5)
+
+
+async def test_an_episode_handler_that_takes_its_time_holds_up_nobody():
+    started = asyncio.Event()
+    resets = []
+
+    async def episode(request):
+        resets.append(request["task"])
+        await started.wait()
+        return {"episode": f"e-{request['task']}"}
+
+    space = Space(capabilities={"state": "external", "episode": {"tasks": ["a"], "evaluator": "evaluator"}},
+                  vocabulary=VOCABULARY)
+    space.handlers.observe = lambda ctx: {"structure": {"things": []}}
+    space.handlers.episode = episode
+    listener = await space.listen("ws://127.0.0.1:0")
+    p = await Participant.connect(listener.address, key=generate_key())
+    await p.join()
+    first = p.request({"type": "episode", "id": "ep-1", "task": "a"})
+    p.request({"type": "episode", "id": "ep-1", "task": "a"})  # sent again while it waits
+    seen = await asyncio.wait_for(p.observe(), 5)  # answered while the episode is being started
+    assert isinstance(seen["seq"], int)
+    started.set()
+    out = await asyncio.wait_for(first, 5)
+    assert out.end is End.DONE and out.result == {"episode": "e-a"}
+    assert resets == ["a"]
+    await p.close()
+    await space.close()
