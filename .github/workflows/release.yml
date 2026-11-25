@@ -1,0 +1,43 @@
+name: release
+# A tag v<version> (the version in pyproject.toml) builds the package, checks it in a clean
+# environment with only the base, and publishes it to PyPI by trusted publishing.
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - name: the tag names the version in pyproject.toml
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          test "v$version" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} is not v$version"; exit 1; }
+      - run: uv build
+      - name: the wheel installs and works with only the base
+        run: |
+          uv venv /tmp/base
+          uv pip install --python /tmp/base dist/*.whl pytest pytest-asyncio
+          /tmp/base/bin/python -c "import agent_space, aiohttp" 2>/dev/null && { echo "an extra leaked into the base"; exit 1; } || true
+          /tmp/base/bin/python -m pytest -q -p no:cacheprovider
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/agent-space-protocol/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
