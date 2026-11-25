@@ -259,3 +259,21 @@ async def test_an_episode_handler_that_takes_its_time_holds_up_nobody():
     assert resets == ["a"]
     await p.close()
     await space.close()
+
+
+async def test_a_handler_that_fails_still_answers():
+    def episode(request):
+        raise RuntimeError("the simulator did not start")
+
+    space = Space(capabilities={"state": "external", "episode": {"tasks": ["a"], "evaluator": "evaluator"}},
+                  vocabulary=VOCABULARY)
+    space.handlers.observe = lambda ctx: {"structure": {"things": []}}
+    space.handlers.episode = episode
+    listener = await space.listen("ws://127.0.0.1:0")
+    p = await Participant.connect(listener.address, key=generate_key())
+    await p.join()
+    out = await asyncio.wait_for(p.request({"type": "episode", "task": "a"}), 5)
+    assert out.end is End.FAILED and out.reason.code == "sdk.handler_error"
+    assert "did not start" in out.reason.text
+    await p.close()
+    await space.close()

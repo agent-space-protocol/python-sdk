@@ -221,6 +221,12 @@ def _strip_props(obj: dict[str, Any], hide: list[str]) -> dict[str, Any]:
     return {k: v for k, v in obj.items() if k not in hide or k in ("id", "type")}
 
 
+def _handler_failed(error: Exception) -> dict[str, Any]:
+    """The outcome of a request whose handler raised something other than Refused: every
+    request with an ID gets exactly one final answer, also when the implementer's code fails."""
+    return {"end": "failed", "reason": {"code": "sdk.handler_error", "text": f"{type(error).__name__}: {error}"}}
+
+
 def default_parts(capabilities: dict[str, Any]) -> dict[str, list[int]]:
     """The parts a space supports by default: the core, and the part of every declared capability."""
     parts: dict[str, list[int]] = {"core": [0]}
@@ -1077,6 +1083,8 @@ class Space:
             self._finish_simple(presence, msg, {"end": "done", "result": {"snapshot": h}}, True, entry["seq"])
         except Refused as e:
             self._finish_simple(presence, msg, {"end": "refused", "reason": strip_none({"code": e.code, "text": e.text})})
+        except Exception as e:  # the handler's own error: an outcome all the same
+            self._finish_simple(presence, msg, _handler_failed(e))
 
     def _m_restore(self, presence: _Presence, session: _Session, msg: dict[str, Any]) -> None:
         try:
@@ -1090,6 +1098,8 @@ class Space:
             self._finish_simple(presence, msg, {"end": "done"}, True, entry["seq"])
         except Refused as e:
             self._finish_simple(presence, msg, {"end": "refused", "reason": strip_none({"code": e.code, "text": e.text})})
+        except Exception as e:
+            self._finish_simple(presence, msg, _handler_failed(e))
 
     async def _m_episode(self, presence: _Presence, session: _Session, msg: dict[str, Any]) -> None:
         # A handler may take its time (an adapter starting an episode of another system): it is
@@ -1108,6 +1118,8 @@ class Space:
             self._finish_simple(presence, msg, {"end": "done", "result": result}, True, entry["seq"])
         except Refused as e:
             self._finish_simple(presence, msg, {"end": "refused", "reason": strip_none({"code": e.code, "text": e.text})})
+        except Exception as e:
+            self._finish_simple(presence, msg, _handler_failed(e))
         finally:
             self._episodes.discard(key)
 
@@ -1125,6 +1137,8 @@ class Space:
             self._finish_simple(presence, msg, {"end": "done", "result": score}, False, entry["seq"])
         except Refused as e:
             self._finish_simple(presence, msg, {"end": "refused", "reason": strip_none({"code": e.code, "text": e.text})}, False)
+        except Exception as e:
+            self._finish_simple(presence, msg, _handler_failed(e), False)
 
     def _m_pause(self, presence: _Presence, session: _Session, msg: dict[str, Any]) -> None:
         running = self._running.get(_req_key(presence, msg["action"]))
