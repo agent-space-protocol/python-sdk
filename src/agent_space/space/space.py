@@ -152,8 +152,9 @@ class Handlers:
     edit: Callable[[EditContext], Any] | None = None
     admit: Callable[[dict[str, Any]], str] | None = None
     presentation: Callable[[dict[str, Any]], dict[str, str]] | None = None
-    episode: Callable[[dict[str, Any]], dict[str, Any]] | None = None
-    score: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    # Either may be a coroutine function: it is awaited while the space goes on.
+    episode: Callable[[dict[str, Any]], dict[str, Any] | Awaitable[dict[str, Any]]] | None = None
+    score: Callable[[dict[str, Any]], dict[str, Any] | Awaitable[dict[str, Any]]] | None = None
     snapshot: Callable[[], Any] | None = None
     restore: Callable[[Any], None] | None = None
     sense: Callable[[str, str, dict[str, Any], PresenceInfo], Any] | None = None
@@ -271,6 +272,7 @@ class Space:
         self._listeners: list[Listener] = []
         self._blobs: dict[str, tuple[str, bytes]] = {self.vocabulary_hash: ("application/json", canonical_json(vocabulary).encode())}
         self._param_validators: dict[str, Any] = {}
+        self._episodes: set[str] = set()
         self._closing = False
         self._closed: asyncio.Future[None] | None = None
         self._pruned_before = self.store.get_meta("pruned_before")
@@ -1089,17 +1091,27 @@ class Space:
         except Refused as e:
             self._finish_simple(presence, msg, {"end": "refused", "reason": strip_none({"code": e.code, "text": e.text})})
 
-    def _m_episode(self, presence: _Presence, session: _Session, msg: dict[str, Any]) -> None:
+    async def _m_episode(self, presence: _Presence, session: _Session, msg: dict[str, Any]) -> None:
+        # A handler may take its time (an adapter starting an episode of another system): it is
+        # awaited, the space goes on meanwhile, and the same request sent again is answered once.
+        key = _req_key(presence, msg["id"])
+        if key in self._episodes:
+            return
+        self._episodes.add(key)
         try:
             if not self.handlers.episode:
                 raise Refused("unsupported", "this space has no episodes")
             result = self.handlers.episode({"task": msg.get("task"), "seed": msg.get("seed"), "presence": _info(presence)})
+            if inspect.isawaitable(result):
+                result = await result
             entry = self._append([{"source": f"presence/{presence.id}", "type": "asp.episode", "data": strip_none({"episode": result["episode"], "task": msg.get("task"), "seed": msg.get("seed")})}])[0]
             self._finish_simple(presence, msg, {"end": "done", "result": result}, True, entry["seq"])
         except Refused as e:
             self._finish_simple(presence, msg, {"end": "refused", "reason": strip_none({"code": e.code, "text": e.text})})
+        finally:
+            self._episodes.discard(key)
 
-    def _m_score(self, presence: _Presence, session: _Session, msg: dict[str, Any]) -> None:
+    async def _m_score(self, presence: _Presence, session: _Session, msg: dict[str, Any]) -> None:
         evaluator = self.capabilities.get("episode", {}).get("evaluator", "evaluator")
         try:
             if presence.role != evaluator:
@@ -1107,6 +1119,8 @@ class Space:
             if not self.handlers.score:
                 raise Refused("unsupported", "this space gives no scores")
             score = self.handlers.score({"episode": msg.get("episode"), "presence": _info(presence)})
+            if inspect.isawaitable(score):
+                score = await score
             entry = self._append([{"source": "space", "type": "asp.score", "roles": [evaluator], "data": {"episode": score["episode"], "score": score["score"]}}])[0]
             self._finish_simple(presence, msg, {"end": "done", "result": score}, False, entry["seq"])
         except Refused as e:
