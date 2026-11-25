@@ -1,0 +1,25 @@
+name: check
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: agent-space-protocol/agentspaceprotocol
+          path: spec
+          token: ${{ secrets.SPEC_READ_TOKEN || github.token }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - name: schema.json and the generated types match the specification
+        run: uv run python scripts/generate_types.py --sync spec --check
+      - run: uv run pytest
