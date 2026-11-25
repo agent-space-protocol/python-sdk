@@ -3,7 +3,7 @@ specification's schema.json.
 
     python scripts/generate_types.py [--sync <spec-repo>] [--check]
 
---sync copies schema/draft/schema.json from a checkout of the specification first; --check exits 1
+--sync copies schema/v0/schema.json from a checkout of the specification first; --check exits 1
 when the schema copy or the generated types differ.
 """
 
@@ -80,7 +80,7 @@ def main() -> int:
     args = parser.parse_args()
     ok = True
     if args.sync:
-        spec = Path(args.sync) / "schema" / "draft" / "schema.json"
+        spec = Path(args.sync) / "schema" / "v0" / "schema.json"
         ok = emit(SCHEMA, spec.read_text(encoding="utf-8"), args.check) and ok
     ok = emit(TYPES, generate(SCHEMA.read_text(encoding="utf-8")), args.check) and ok
     if ok and args.check:

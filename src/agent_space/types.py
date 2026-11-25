@@ -700,7 +700,7 @@ class Reason(TypedDict):
 
     code: str
     """
-    A protocol reason, or a namespaced code such as `onebot.timeout`.
+    A protocol reason, or a namespaced code such as `chat.delivery_timeout`.
     """
     text: NotRequired[str]
     """
