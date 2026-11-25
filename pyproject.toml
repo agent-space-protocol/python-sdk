@@ -6,16 +6,24 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
-dependencies = [
-  "aiohttp>=3.10",
-  "cryptography>=43",
-  "jsonschema>=4.23",
-  "typing-extensions>=4.12",
-]
+# The base is the standard library: participant, space skeleton, the three transports,
+# Ed25519 and validation all work without anything else. The extras do the same faster or
+# more completely.
+dependencies = []
+
 classifiers = [
   "Programming Language :: Python :: 3",
   "Framework :: AsyncIO",
 ]
+
+[project.optional-dependencies]
+# WebSocket and HTTP on aiohttp: a server and client for many connections.
+aiohttp = ["aiohttp>=3.10"]
+# Ed25519 on cryptography: the same signatures, computed faster.
+crypto = ["cryptography>=43"]
+# Validation on jsonschema: every keyword of JSON Schema 2020-12.
+validate = ["jsonschema>=4.23"]
+all = ["agent-space-protocol[aiohttp,crypto,validate]"]
 
 [project.urls]
 Repository = "https://github.com/agent-space-protocol/python-sdk"
@@ -26,6 +34,7 @@ agent-space-py = "agent_space.testing.__main__:main"
 
 [dependency-groups]
 dev = [
+  "agent-space-protocol[all]",
   "pytest>=8",
   "pytest-asyncio>=0.24",
   "datamodel-code-generator>=0.26",

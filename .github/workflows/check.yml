@@ -23,3 +23,28 @@ jobs:
       - name: schema.json and the generated types match the specification
         run: uv run python scripts/generate_types.py --sync spec --check
       - run: uv run pytest
+      - name: the standard-library transports, with the extras installed
+        run: uv run pytest
+        env:
+          AGENT_SPACE_TRANSPORT: stdlib
+  base:
+    # The base alone: no aiohttp, cryptography or jsonschema in the environment.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv venv base && uv pip install --python base . pytest pytest-asyncio
+        shell: bash
+      - name: nothing but the base is installed
+        shell: bash
+        run: |
+          py=$( [ -f base/bin/python ] && echo base/bin/python || echo base/Scripts/python.exe )
+          ! $py -c "import aiohttp" 2>/dev/null
+          ! $py -c "import cryptography" 2>/dev/null
+          ! $py -c "import jsonschema" 2>/dev/null
+          $py -m pytest -p no:cacheprovider

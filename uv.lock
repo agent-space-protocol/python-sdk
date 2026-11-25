@@ -14,15 +14,26 @@ resolution-markers = [
 name = "agent-space-protocol"
 version = "0.0.0"
 source = { editable = "." }
-dependencies = [
+
+[package.optional-dependencies]
+aiohttp = [
+    { name = "aiohttp" },
+]
+all = [
     { name = "aiohttp" },
     { name = "cryptography" },
     { name = "jsonschema" },
-    { name = "typing-extensions" },
+]
+crypto = [
+    { name = "cryptography" },
+]
+validate = [
+    { name = "jsonschema" },
 ]
 
 [package.dev-dependencies]
 dev = [
+    { name = "agent-space-protocol", extra = ["all"] },
     { name = "datamodel-code-generator" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -30,14 +41,16 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.10" },
-    { name = "cryptography", specifier = ">=43" },
-    { name = "jsonschema", specifier = ">=4.23" },
-    { name = "typing-extensions", specifier = ">=4.12" },
+    { name = "agent-space-protocol", extras = ["aiohttp", "crypto", "validate"], marker = "extra == 'all'" },
+    { name = "aiohttp", marker = "extra == 'aiohttp'", specifier = ">=3.10" },
+    { name = "cryptography", marker = "extra == 'crypto'", specifier = ">=43" },
+    { name = "jsonschema", marker = "extra == 'validate'", specifier = ">=4.23" },
 ]
+provides-extras = ["aiohttp", "crypto", "validate", "all"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "agent-space-protocol", extras = ["all"] },
     { name = "datamodel-code-generator", specifier = ">=0.26" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.24" },

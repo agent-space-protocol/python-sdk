@@ -55,6 +55,8 @@ def generate(schema_text: str) -> str:
             check=True,
         )
         body = out.read_text(encoding="utf-8").replace("\r\n", "\n")
+    # The SDK's base needs nothing beyond the standard library: TypedDict comes from typing.
+    body = body.replace("from typing_extensions import TypedDict", "from typing import TypedDict")
     lines = [line for line in body.split("\n") if not line.startswith("#   filename:")]
     return HEADER + "\n".join(lines).lstrip("\n")
 

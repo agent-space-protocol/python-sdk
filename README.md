@@ -8,14 +8,36 @@ that keeps the protocol's guarantees for you. The same two ends, transports and 
 **Status: draft**, like the protocol. Not yet published to PyPI; install it from git.
 
 - Distribution `agent-space-protocol`, import `agent_space`, Python 3.11 or later, asyncio.
-- Transports: WebSocket, HTTP with server-sent events, standard input and output (aiohttp).
-- Identity: Ed25519 keys (cryptography), proofs of identity, passes through doors.
+- **No dependencies.** The base is the standard library: both ends, all three transports
+  (WebSocket, HTTP with server-sent events, standard input and output), Ed25519 and validation.
+- Transports: WebSocket, HTTP with server-sent events, standard input and output.
+- Identity: Ed25519 keys (RFC 8032), proofs of identity, passes through doors.
 - Types: `agent_space.types` is generated from the specification's `schema.json`; messages are
-  validated against it (jsonschema).
+  validated against it.
 
 ```sh
 uv add "agent-space-protocol @ git+https://github.com/agent-space-protocol/python-sdk"
 ```
+
+Three extras do the same work faster or more completely; install them where it matters, such as a
+space that serves many connections:
+
+| Extra | Uses | Instead of |
+|---|---|---|
+| `aiohttp` | aiohttp for WebSocket and HTTP, server and client | the standard-library transports (`agent_space._stdlib`) |
+| `crypto` | `cryptography` for Ed25519 | the pure-Python RFC 8032 implementation (`agent_space.ed25519`), milliseconds per signature |
+| `validate` | `jsonschema` for every keyword of JSON Schema 2020-12 | `agent_space.schemalite`, the keywords the schema and typical verb parameters use |
+| `all` | all three | |
+
+```sh
+uv add "agent-space-protocol[all] @ git+https://github.com/agent-space-protocol/python-sdk"
+```
+
+Both implementations of each give the same bytes on the wire and the same signatures; the tests
+check them against each other (RFC 8032 vectors, a standard-library participant in an aiohttp
+space and the other way round). `AGENT_SPACE_TRANSPORT=stdlib` keeps the standard-library
+transports even with aiohttp installed. `agent_space.transport.implementation()`,
+`agent_space.identity.backend()` and `agent_space.protocol.validator_class()` say which is in use.
 
 ## A participant
 
@@ -114,7 +136,8 @@ The test space has the same vocabulary and profile as the inspector's TypeScript
 
 ```sh
 uv sync
-uv run pytest
+uv run pytest                                  # with the extras
+AGENT_SPACE_TRANSPORT=stdlib uv run pytest     # the standard-library transports
 uv run python scripts/generate_types.py --sync ../agentspaceprotocol --check   # schema copy and types match the specification
 ```
 
