@@ -5,7 +5,7 @@ both ends of the protocol, a participant that enters any space and a skeleton fo
 that keeps the protocol's guarantees for you. The same two ends, transports and identity as the
 [TypeScript SDK](https://github.com/agent-space-protocol/typescript-sdk).
 
-**Status: draft**, like the protocol. Not yet published to PyPI; install it from git.
+**Status: draft**, like the protocol. Releases go to PyPI as `agent-space-protocol` (a tag `vX.Y.Z` runs `.github/workflows/release.yml`).
 
 - Distribution `agent-space-protocol`, import `agent_space`, Python 3.11 or later, asyncio.
 - **No dependencies.** The base is the standard library: both ends, all three transports
@@ -16,7 +16,7 @@ that keeps the protocol's guarantees for you. The same two ends, transports and 
   validated against it.
 
 ```sh
-uv add "agent-space-protocol @ git+https://github.com/agent-space-protocol/python-sdk"
+uv add agent-space-protocol
 ```
 
 Three extras do the same work faster or more completely; install them where it matters, such as a
@@ -30,7 +30,7 @@ space that serves many connections:
 | `all` | all three | |
 
 ```sh
-uv add "agent-space-protocol[all] @ git+https://github.com/agent-space-protocol/python-sdk"
+uv add "agent-space-protocol[all]"
 ```
 
 Both implementations of each give the same bytes on the wire and the same signatures; the tests
